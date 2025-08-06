@@ -146,5 +146,10 @@ func (m AppModel) saveAndExit() (tea.Model, tea.Cmd) {
 	log.Printf("Saving data and exiting: %+v", m.data)
 	// TODO: persist m.data to SQLite here
 	log.Println("Success! Data logged.")
+	clearTerminal()
 	return m, tea.Quit
+}
+
+func clearTerminal() {
+	print("\033[H\033[2J")
 }
