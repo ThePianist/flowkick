@@ -10,14 +10,16 @@ type AppState int
 
 const (
 	TextInputState AppState = iota
+	ProjectSearchState
 	TypeSelectionState
 	IssueSearchState
 )
 
 type Data struct {
-	Entry string
-	Type  string
-	Issue string
+	Entry   string
+	Project string
+	Type    string
+	Issue   string
 }
 
 type AppModel struct {
@@ -25,6 +27,7 @@ type AppModel struct {
 	textInputModel     Model
 	typeSelectionModel TypeSelectionModel
 	issueSearchModel   IssueSearchModel
+	projectSearchModel ProjectSearchModel
 	data               Data
 }
 
@@ -40,6 +43,8 @@ func (m AppModel) Init() tea.Cmd {
 	switch m.state {
 	case TextInputState:
 		return m.textInputModel.Init()
+	case ProjectSearchState:
+		return m.projectSearchModel.Init()
 	case TypeSelectionState:
 		return m.typeSelectionModel.Init()
 	case IssueSearchState:
@@ -63,6 +68,14 @@ func (m AppModel) handleQuit(msg tea.Msg) (tea.Cmd, bool) {
 func (m *AppModel) handleTextInputEnter() (tea.Model, tea.Cmd) {
 	m.data.Entry = m.textInputModel.AddEntry.Value()
 	log.Print(m.data.Entry)
+	m.state = ProjectSearchState
+	m.projectSearchModel = NewProjectSearchModel(m.data.Entry, m.data.Type)
+	return *m, m.projectSearchModel.Init()
+}
+
+func (m *AppModel) handleProjectSelectionEnter() (tea.Model, tea.Cmd) {
+	m.data.Project = m.projectSearchModel.textInput.Value()
+	log.Print(m.data.Project)
 	m.state = TypeSelectionState
 	m.typeSelectionModel = NewTypeSelectionModel()
 	return *m, m.typeSelectionModel.Init()
@@ -95,6 +108,19 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if key, ok := msg.(tea.KeyMsg); ok && key.Type == tea.KeyEnter {
 			return m.handleTextInputEnter()
+		}
+
+		return m, cmd
+
+	case ProjectSearchState:
+		var cmd tea.Cmd
+		m.projectSearchModel, cmd = updateModel(m.projectSearchModel, msg, func(model ProjectSearchModel, msg tea.Msg) (tea.Model, tea.Cmd) {
+			return model.Update(msg)
+		})
+		m.data.Project = m.projectSearchModel.textInput.Value()
+
+		if key, ok := msg.(tea.KeyMsg); ok && key.Type == tea.KeyEnter {
+			return m.handleProjectSelectionEnter()
 		}
 
 		return m, cmd
@@ -133,6 +159,8 @@ func (m AppModel) View() string {
 	switch m.state {
 	case TextInputState:
 		return m.textInputModel.View()
+	case ProjectSearchState:
+		return m.projectSearchModel.View()
 	case TypeSelectionState:
 		return m.typeSelectionModel.View()
 	case IssueSearchState:
