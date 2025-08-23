@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/ThePianist/flowkick/store"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -16,21 +17,8 @@ type projectNames struct {
 	Name string `json:"name"`
 }
 
-func getProjects() tea.Msg {
-	projectNames := []projectNames{
-		{Name: "Enterprise Platform Revamp"},
-		{Name: "Mobile Banking App"},
-		{Name: "Internal Developer Portal"},
-		{Name: "Customer Support Chatbot"},
-		{Name: "E-commerce Storefront"},
-		{Name: "Analytics Dashboard"},
-		{Name: "DevOps Automation Suite"},
-		{Name: "Marketing Campaign Tracker"},
-		{Name: "API Gateway Migration"},
-		{Name: "Content Management System"},
-	}
-
-	return gotProjectSuccessMsg(projectNames)
+func getProjects(store *store.Store) ([]string, error) {
+	return store.GetScopes()
 }
 
 type ProjectSearchModel struct {
@@ -54,7 +42,7 @@ func (k projectKeymap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{k.ShortHelp()}
 }
 
-func NewProjectSearchModel(entry, selectedType string) ProjectSearchModel {
+func NewProjectSearchModel(entry, selectedType string, store *store.Store) ProjectSearchModel {
 	ti := textinput.New()
 	ti.Placeholder = "(press ↵ to skip)"
 	ti.Prompt = ""
@@ -68,6 +56,13 @@ func NewProjectSearchModel(entry, selectedType string) ProjectSearchModel {
 	h := help.New()
 	km := projectKeymap{}
 
+	// Fetch dynamic suggestions from DB
+	var suggestions []string
+	if store != nil {
+		suggestions, _ = getProjects(store)
+	}
+	ti.SetSuggestions(suggestions)
+
 	return ProjectSearchModel{
 		textInput: ti,
 		help:      h,
@@ -76,7 +71,7 @@ func NewProjectSearchModel(entry, selectedType string) ProjectSearchModel {
 }
 
 func (m ProjectSearchModel) Init() tea.Cmd {
-	return tea.Batch(getProjects, textinput.Blink)
+	return textinput.Blink
 }
 
 func (m ProjectSearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

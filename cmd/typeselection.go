@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/ThePianist/flowkick/store"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -54,13 +55,15 @@ type TypeSelectionModel struct {
 	quitting bool
 }
 
-func NewTypeSelectionModel() TypeSelectionModel {
-	items := []list.Item{
-		item("🏆 Win"),
-		item("⛔ Blocker"),
-		item("📝 General"),
-		item("🔁 Retrospective"),
-		item("💡 Idea"),
+func NewTypeSelectionModel(store *store.Store) TypeSelectionModel {
+	var items []list.Item
+	if store != nil {
+		types, err := store.GetTypes()
+		if err == nil {
+			for _, t := range types {
+				items = append(items, item(t))
+			}
+		}
 	}
 
 	const defaultWidth = 40

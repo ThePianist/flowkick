@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/ThePianist/flowkick/store"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -10,33 +11,16 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type gotIssueSuccessMsg []issueIds
-
-type issueIds struct {
-	Name string `json:"name"`
-}
-
-func getRepos() tea.Msg {
-	issueIds := []issueIds{
-		{Name: "DEV-101 Fix cache invalidation issue in product listing"},
-		{Name: "API-234 Add authentication middleware for microservices"},
-		{Name: "UI-456 Redesign dashboard header layout"},
-		{Name: "OPS-332 Migrate database from MySQL to PostgreSQL"},
-		{Name: "SEC-219 Patch XSS vulnerability in comments section"},
-		{Name: "INT-178 Integrate Stripe API for payment processing"},
-		{Name: "DOC-87 Update onboarding documentation"},
-		{Name: "PERF-92 Optimize image loading for mobile view"},
-		{Name: "FEAT-310 Implement dark mode toggle in settings"},
-		{Name: "BUG-415 Resolve 500 error when saving profile changes"},
-	}
-
-	return gotIssueSuccessMsg(issueIds)
+func getIssues(store *store.Store) ([]string, error) {
+	return store.GetTickets()
 }
 
 type IssueSearchModel struct {
-	textInput textinput.Model
-	help      help.Model
-	keymap    issueKeymap
+	textInput   textinput.Model
+	help        help.Model
+	keymap      issueKeymap
+	store       *store.Store
+	suggestions []string
 }
 
 type issueKeymap struct{}
@@ -54,7 +38,7 @@ func (k issueKeymap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{k.ShortHelp()}
 }
 
-func NewIssueSearchModel(entry, selectedType string) IssueSearchModel {
+func NewIssueSearchModel(entry, selectedType string, store *store.Store) IssueSearchModel {
 	ti := textinput.New()
 	ti.Placeholder = "(press ↵ to skip)"
 	ti.Prompt = ""
@@ -68,15 +52,24 @@ func NewIssueSearchModel(entry, selectedType string) IssueSearchModel {
 	h := help.New()
 	km := issueKeymap{}
 
+	// Fetch dynamic suggestions from DB
+	var suggestions []string
+	if store != nil {
+		suggestions, _ = getIssues(store)
+	}
+	ti.SetSuggestions(suggestions)
+
 	return IssueSearchModel{
-		textInput: ti,
-		help:      h,
-		keymap:    km,
+		textInput:   ti,
+		help:        h,
+		keymap:      km,
+		store:       store,
+		suggestions: suggestions,
 	}
 }
 
 func (m IssueSearchModel) Init() tea.Cmd {
-	return tea.Batch(getRepos, textinput.Blink)
+	return textinput.Blink
 }
 
 func (m IssueSearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -84,14 +77,25 @@ func (m IssueSearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter, tea.KeyCtrlC, tea.KeyEsc:
+			// Save new issue/ticket if not already in DB
+			input := m.textInput.Value()
+			if input != "" && m.suggestions != nil {
+				found := false
+				for _, s := range m.suggestions {
+					if s == input {
+						found = true
+						break
+					}
+				}
+				if !found {
+					// Save new ticket
+					if m.store != nil {
+						_ = m.store.SaveTicket(0, input, 0) // entryID can be set if needed
+					}
+				}
+			}
 			return m, tea.Quit
 		}
-	case gotIssueSuccessMsg:
-		var suggestions []string
-		for _, r := range msg {
-			suggestions = append(suggestions, r.Name)
-		}
-		m.textInput.SetSuggestions(suggestions)
 	}
 
 	var cmd tea.Cmd
