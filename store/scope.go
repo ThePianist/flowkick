@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"fmt"
 )
 
 type Scope struct {
@@ -15,21 +16,22 @@ func (s *Store) SaveScope(scope Scope) (int64, error) {
 	ON CONFLICT(name) DO UPDATE SET name=excluded.name;`
 
 	result, err := s.Conn.Exec(upsertScope, scope.Name)
-
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to save scope %q: %w", scope.Name, err)
 	}
 
-	return result.LastInsertId()
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get last insert ID for scope %q: %w", scope.Name, err)
+	}
+	return id, nil
 }
 
 func (s *Store) GetScopes() ([]Scope, error) {
 	rows, err := s.Conn.Query("SELECT id, name FROM scopes")
-
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query scopes: %w", err)
 	}
-
 	defer rows.Close()
 
 	var scopes []Scope
@@ -37,7 +39,7 @@ func (s *Store) GetScopes() ([]Scope, error) {
 	for rows.Next() {
 		var scope Scope
 		if err := rows.Scan(&scope.ID, &scope.Name); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan scope row: %w", err)
 		}
 		scopes = append(scopes, scope)
 	}
@@ -52,9 +54,16 @@ func (s *Store) GetScopeIDByName(name string) (int64, error) {
 		// Insert new scope and return its ID
 		res, err := s.Conn.Exec("INSERT INTO scopes (name) VALUES (?)", name)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("failed to insert new scope %q: %w", name, err)
 		}
-		return res.LastInsertId()
+		id, err := res.LastInsertId()
+		if err != nil {
+			return 0, fmt.Errorf("failed to get last insert ID for scope %q: %w", name, err)
+		}
+		return id, nil
 	}
-	return id, err
+	if err != nil {
+		return 0, fmt.Errorf("failed to query scope by name %q: %w", name, err)
+	}
+	return id, nil
 }

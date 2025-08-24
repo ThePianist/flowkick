@@ -1,7 +1,7 @@
 package entry
 
 import (
-	"log"
+	"fmt"
 	"time"
 
 	"github.com/ThePianist/flowkick/store"
@@ -18,8 +18,7 @@ func ProcessEntryInput(value string, saver EntrySaver) (int64, error) {
 		CreatedAt: time.Now(),
 	}
 	if err := saver.SaveEntry(e); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to save entry %q: %w", value, err)
 	}
-	log.Print(value)
 	return e.ID, nil
 }

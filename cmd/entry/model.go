@@ -9,8 +9,9 @@ type (
 )
 
 type EntryModel struct {
-	Input textinput.Model
-	Err   error
+	Input        textinput.Model
+	Err          error
+	ErrorMessage string // User-facing error message
 }
 
 func NewEntryModel() EntryModel {
@@ -19,7 +20,7 @@ func NewEntryModel() EntryModel {
 	ti.Focus()
 	ti.CharLimit = 0
 	ti.Width = 156
-	return EntryModel{Input: ti, Err: nil}
+	return EntryModel{Input: ti, Err: nil, ErrorMessage: ""}
 }
 
 func (m EntryModel) GetValue() string {

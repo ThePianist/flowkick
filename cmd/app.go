@@ -45,10 +45,14 @@ func (m *AppModel) handleEntrySubmit() (tea.Model, tea.Cmd) {
 	// persist entry first (domain logic)
 	id, err := entry.ProcessEntryInput(inputText, m.store)
 	if err != nil {
-		log.Printf("save failed: %v", err)
-		// stay in the same state so user can retry
-		return *m, nil
+		// Set user-facing error message
+		m.entryModel.ErrorMessage = "Failed to save entry. Please try again."
+		log.Printf("save failed: %v", err) // Still log for debugging
+		return *m, nil                     // Stay in same state with error shown
 	}
+
+	// Clear any previous errors
+	m.entryModel.ErrorMessage = ""
 
 	m.data.Entry = store.Entry{
 		ID:        id,
@@ -70,10 +74,14 @@ func (m *AppModel) handleScopeSubmit() (tea.Model, tea.Cmd) {
 	// persist scope (domain logic)
 	scopeId, err := scope.ProcessScopeInput(inputText, m.store)
 	if err != nil {
-		log.Printf("save failed: %v", err)
-		// stay in the same state so user can retry
-		return *m, nil
+		// Set user-facing error message
+		m.scopeModel.ErrorMessage = "Failed to save project. Please try again."
+		log.Printf("save failed: %v", err) // Still log for debugging
+		return *m, nil                     // Stay in same state with error shown
 	}
+
+	// Clear any previous errors
+	m.scopeModel.ErrorMessage = ""
 
 	if m.data.Entry.ID != 0 {
 		m.store.SaveEntry(store.Entry{

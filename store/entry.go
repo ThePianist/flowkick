@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 )
 
@@ -22,5 +23,8 @@ func (s *Store) SaveEntry(entry Entry) error {
 		entry.ID = time.Now().UnixNano()
 	}
 	_, err := s.Conn.Exec(saveEntryStatement, entry.ID, entry.Note, entry.ScopeID, entry.TypeID, entry.TicketID, entry.CreatedAt)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to save entry (ID: %d): %w", entry.ID, err)
+	}
+	return nil
 }

@@ -10,9 +10,10 @@ import (
 type ScopeKeymap struct{}
 
 type ScopeModel struct {
-	Input  textinput.Model
-	Help   help.Model
-	Keymap ScopeKeymap
+	Input        textinput.Model
+	Help         help.Model
+	Keymap       ScopeKeymap
+	ErrorMessage string // User-facing error message
 }
 
 func NewScopeModel(entry, selectedType string, store *store.Store) ScopeModel {

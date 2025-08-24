@@ -1,7 +1,7 @@
 package scope
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/ThePianist/flowkick/store"
 )
@@ -16,11 +16,9 @@ func ProcessScopeInput(value string, saver ScopeSaver) (int64, error) {
 	}
 
 	id, err := saver.SaveScope(e)
-
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to save scope %q: %w", value, err)
 	}
 
-	log.Print(value)
 	return id, nil
 }
