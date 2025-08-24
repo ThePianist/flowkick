@@ -9,32 +9,40 @@ type Scope struct {
 	Name string `db:"name"`
 }
 
-func (s *Store) GetScopes() ([]string, error) {
-	rows, err := s.Conn.Query("SELECT name FROM scopes")
+func (s *Store) SaveScope(scope Scope) (int64, error) {
+	upsertScope := `INSERT INTO scopes (name)
+	VALUES (?)
+	ON CONFLICT(name) DO UPDATE SET name=excluded.name;`
+
+	result, err := s.Conn.Exec(upsertScope, scope.Name)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return result.LastInsertId()
+}
+
+func (s *Store) GetScopes() ([]Scope, error) {
+	rows, err := s.Conn.Query("SELECT id, name FROM scopes")
+
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
-	var scopes []string
+
+	var scopes []Scope
+
 	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
+		var scope Scope
+		if err := rows.Scan(&scope.ID, &scope.Name); err != nil {
 			return nil, err
 		}
-		scopes = append(scopes, name)
+		scopes = append(scopes, scope)
 	}
-	return scopes, nil
-}
 
-func (s *Store) SaveScope(scopeID int64, name string) error {
-	upsertScope := `INSERT INTO scopes (id, name)
-	VALUES (?, ?)
-	ON CONFLICT(id) DO UPDATE SET name=excluded.name;`
-	_, err := s.Conn.Exec(upsertScope, scopeID, name)
-	if err != nil {
-		return err
-	}
-	return nil
+	return scopes, nil
 }
 
 func (s *Store) GetScopeIDByName(name string) (int64, error) {

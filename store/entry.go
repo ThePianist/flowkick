@@ -16,7 +16,8 @@ type Entry struct {
 
 func (s *Store) SaveEntry(entry Entry) error {
 	saveEntryStatement := `INSERT INTO entries (id, note, scope_id, type_id, ticket_id, created_at)
-	VALUES (?, ?, ?, ?, ?, ?)`
+	VALUES (?, ?, ?, ?, ?, ?) 
+	ON CONFLICT(id) DO UPDATE SET note=excluded.note, scope_id=excluded.scope_id, type_id=excluded.type_id, ticket_id=excluded.ticket_id, created_at=excluded.created_at;`
 	if entry.ID == 0 {
 		entry.ID = time.Now().UnixNano()
 	}

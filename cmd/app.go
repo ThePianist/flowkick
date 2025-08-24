@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ThePianist/flowkick/cmd/entry"
+	"github.com/ThePianist/flowkick/cmd/scope"
 	"github.com/ThePianist/flowkick/store"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -39,41 +40,54 @@ func (m AppModel) Init() tea.Cmd {
 
 func (m *AppModel) handleEntrySubmit() (tea.Model, tea.Cmd) {
 	// read input
-	m.data.Entry = m.entryModel.GetValue()
+	inputText := m.entryModel.GetValue()
 
 	// persist entry first (domain logic)
-	id, err := entry.ProcessEntryInput(m.data.Entry, m.store)
+	id, err := entry.ProcessEntryInput(inputText, m.store)
 	if err != nil {
 		log.Printf("save failed: %v", err)
 		// stay in the same state so user can retry
 		return *m, nil
 	}
-	m.dataEntryID = id
+
+	m.data.Entry = store.Entry{
+		ID:        id,
+		Note:      inputText,
+		CreatedAt: time.Now(),
+	}
 
 	// now prepare the next UI state
-	m.projectSearchModel = NewProjectSearchModel(m.data.Entry, m.data.Type, m.store)
+	m.scopeModel = scope.NewScopeModel(inputText, m.data.Type, m.store)
 	m.currentView = ScopeInputView
 
-	return *m, m.projectSearchModel.Init()
+	return *m, m.scopeModel.Init()
 }
 
-func (m *AppModel) handleProjectSelectionEnter() (tea.Model, tea.Cmd) {
-	m.data.Project = m.projectSearchModel.textInput.Value()
-	log.Print(m.data.Project)
-	if m.dataEntryID != 0 {
-		// Get or create scope and get its ID
-		scopeID, err := m.store.GetScopeIDByName(m.data.Project)
-		if err == nil {
-			m.store.SaveEntry(store.Entry{
-				ID:        m.dataEntryID,
-				Note:      m.data.Entry,
-				ScopeID:   sql.NullInt64{Int64: scopeID, Valid: true},
-				CreatedAt: time.Now(),
-			})
-		}
+func (m *AppModel) handleScopeSubmit() (tea.Model, tea.Cmd) {
+	// read input
+	inputText := m.scopeModel.GetValue()
+
+	// persist scope (domain logic)
+	scopeId, err := scope.ProcessScopeInput(inputText, m.store)
+	if err != nil {
+		log.Printf("save failed: %v", err)
+		// stay in the same state so user can retry
+		return *m, nil
 	}
+
+	if m.data.Entry.ID != 0 {
+		m.store.SaveEntry(store.Entry{
+			ID:        m.data.Entry.ID,
+			Note:      m.data.Entry.Note,
+			ScopeID:   sql.NullInt64{Int64: scopeId, Valid: true},
+			CreatedAt: time.Now(),
+		})
+	}
+
+	// now prepare the next UI state
 	m.currentView = TypeSelectView
 	m.typeSelectionModel = NewTypeSelectionModel(m.store)
+
 	return *m, m.typeSelectionModel.Init()
 }
 
@@ -91,14 +105,14 @@ func (m *AppModel) handleTypeSelectionEnter() (tea.Model, tea.Cmd) {
 		}
 
 		m.store.SaveEntry(store.Entry{
-			ID:        m.dataEntryID,
-			Note:      m.data.Entry,
+			ID:        m.data.Entry.ID,
+			Note:      m.data.Entry.Note,
 			TypeID:    sql.NullInt64{Int64: typeID, Valid: typeID != 0},
 			CreatedAt: time.Now(),
 		})
 	}
 	m.currentView = TicketInputView
-	m.issueSearchModel = NewIssueSearchModel(m.data.Entry, m.data.Type, m.store)
+	m.issueSearchModel = NewIssueSearchModel(m.data.Entry.Note, m.data.Type, m.store)
 	return *m, m.issueSearchModel.Init()
 }
 
@@ -127,13 +141,15 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ScopeInputView:
 		var cmd tea.Cmd
-		m.projectSearchModel, cmd = updateModel(m.projectSearchModel, msg, func(model ProjectSearchModel, msg tea.Msg) (tea.Model, tea.Cmd) {
+		m.scopeModel, cmd = updateModel(m.scopeModel, msg, func(model scope.ScopeModel, msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model.Update(msg)
 		})
-		m.data.Project = m.projectSearchModel.textInput.Value()
+		m.data.Scope = store.Scope{
+			Name: m.scopeModel.GetValue(),
+		}
 
 		if key, ok := msg.(tea.KeyMsg); ok && key.Type == tea.KeyEnter {
-			return m.handleProjectSelectionEnter()
+			return m.handleScopeSubmit()
 		}
 
 		return m, cmd
@@ -173,7 +189,7 @@ func (m AppModel) View() string {
 	case EntryInputView:
 		return m.entryModel.View()
 	case ScopeInputView:
-		return m.projectSearchModel.View()
+		return m.scopeModel.View()
 	case TypeSelectView:
 		return m.typeSelectionModel.View()
 	case TicketInputView:
@@ -186,10 +202,10 @@ func (m AppModel) View() string {
 func (m AppModel) saveAndExit() (tea.Model, tea.Cmd) {
 	log.Printf("Saving data and exiting: %+v", m.data)
 	if m.dataEntryID != 0 && m.data.Issue != "" {
-		m.store.SaveTicket(0, m.data.Issue, m.dataEntryID)
+		m.store.SaveTicket(0, m.data.Issue, m.data.Entry.ID)
 		m.store.SaveEntry(store.Entry{
-			ID:        m.dataEntryID,
-			Note:      m.data.Entry,
+			ID:        m.data.Entry.ID,
+			Note:      m.data.Entry.Note,
 			TicketID:  sql.NullInt64{Int64: 0, Valid: false}, // You may want to fetch the actual ticket ID
 			CreatedAt: time.Now(),
 		})

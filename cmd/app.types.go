@@ -2,16 +2,17 @@ package cmd
 
 import (
 	"github.com/ThePianist/flowkick/cmd/entry"
+	"github.com/ThePianist/flowkick/cmd/scope"
 	"github.com/ThePianist/flowkick/store"
 )
 
 type AppState int
 
 type Data struct {
-	Entry   string
-	Project string
-	Type    string
-	Issue   string
+	Entry store.Entry
+	Scope store.Scope
+	Type  string
+	Issue string
 }
 
 type AppModel struct {
@@ -19,7 +20,7 @@ type AppModel struct {
 	entryModel         entry.EntryModel
 	typeSelectionModel TypeSelectionModel
 	issueSearchModel   IssueSearchModel
-	projectSearchModel ProjectSearchModel
+	scopeModel         scope.ScopeModel
 	data               Data
 	store              *store.Store
 	dataEntryID        int64 // Store entry ID for linking
